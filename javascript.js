@@ -1,7 +1,7 @@
 let availablekeywords = [
-    "ខេត្តកំពង់ចាម",
-    "ក្រុងភ្នំពេញ",
     "ខេត្តសៀមរាប",
+    "ខេត្តកំពង់ចាម",
+    "រាជធានីភ្នំពេញ",
     "ខេត្តកណ្តាល",
     // Add more keywords as needed
 ];
@@ -38,8 +38,8 @@ if (inputBox) {
                     inputBox.value = m;
                     suggestions.innerHTML = '';
                     suggestions.style.display = 'none';
-                    // filter table immediately for the selected suggestion
-                    searchTable(m);
+                    // filter results (table or divs) immediately for the selected suggestion
+                    searchAllResults(m);
                 });
                 suggestions.appendChild(li);
             });
@@ -60,20 +60,9 @@ if (inputBox) {
     // Search button: show the current input value and (optionally) filter the table
     if (searchButton){
         searchButton.addEventListener('click', function(){
-            const query = inputBox.value.trim().toLowerCase();
-            // Simple behavior: if query matches a keyword, keep it in the input (already set);
-            // Here we could filter visible table rows. For now, log and highlight matches.
+            const query = inputBox.value.trim();
             console.log('Search for:', query);
-            // Example: highlight matching table rows
-            const rows = document.querySelectorAll('.result-box table tbody tr, .result-box table tr');
-            rows.forEach(r => r.classList && r.classList.remove('highlight'));
-            if (query){
-                rows.forEach(r => {
-                    if (r.textContent && r.textContent.toLowerCase().includes(query)){
-                        r.classList.add('highlight');
-                    }
-                });
-            }
+            searchAllResults(query);
         });
     }
 
@@ -95,11 +84,86 @@ if (inputBox) {
         });
     }
 
+    // Generic search: supports table rows or result divs/cards inside `.result-box`.
+    function searchAllResults(query){
+        const q = (query || '').trim().toLowerCase();
+        // Prefer table if present and has rows
+        const table = document.querySelector('.result-box table');
+        if (table && table.querySelectorAll('tr').length > 0){
+            searchTable(query);
+            updateResultsTitle(query);
+            return;
+        }
+
+        const container = document.querySelector('.result-box');
+        if (!container) return;
+
+        // Try common result element classes first
+        const itemSelectors = ['.result-item', '.result-card', '.card', '.search-result'];
+        let items = [];
+        for (const s of itemSelectors){
+            const found = container.querySelectorAll(s);
+            if (found && found.length) { items = Array.from(found); break; }
+        }
+
+        // Fallback: direct child divs of the result container (excluding tables)
+        if (!items.length){
+            items = Array.from(container.children).filter(el => el.tagName.toLowerCase() !== 'table');
+        }
+
+        items.forEach(it => {
+            const text = it.textContent ? it.textContent.toLowerCase() : '';
+            if (!q || text.includes(q)){
+                it.style.display = '';
+            } else {
+                it.style.display = 'none';
+            }
+        });
+        updateResultsTitle(query);
+    }
+
+    // Update the visible results title and document title
+    function updateResultsTitle(query){
+        const titleEl = document.getElementById('resultsTitle');
+        if (!titleEl) return;
+        const q = (query || '').trim();
+        let count = 0;
+        const table = document.querySelector('.result-box table');
+        if (table && table.querySelectorAll('tr').length > 0){
+            const rows = Array.from(table.querySelectorAll('tr'));
+            // exclude header
+            count = rows.slice(1).filter(r => r.style.display !== 'none').length;
+        } else {
+            const container = document.querySelector('.result-box');
+            if (container){
+                const items = Array.from(container.querySelectorAll('.result-item, .result-card, .card, .search-result'));
+                if (items.length > 0){
+                    count = items.filter(i => i.style.display !== 'none').length;
+                } else {
+                    // fallback: direct child divs
+                    const children = Array.from(container.children).filter(el => el.tagName.toLowerCase() !== 'table');
+                    count = children.filter(c => c.style.display !== 'none').length;
+                }
+            }
+        }
+
+        if (!q){
+            titleEl.hidden = true;
+            document.title = 'បញ្ជីដីរដ្ឋ';
+            return;
+        }
+
+        titleEl.hidden = false;
+        titleEl.textContent = `Results for "${q}" — ${count}`;
+        // Update browser tab title too
+        document.title = `${q} — ${count} results`;
+    }
+
     // Enter key should perform the search (when not selecting suggestion)
     inputBox.addEventListener('keydown', function(e){
         if (e.key === 'Enter'){
             const query = inputBox.value.trim();
-            searchTable(query);
+            searchAllResults(query);
         }
     });
 
@@ -126,6 +190,8 @@ if (inputBox) {
                 inputBox.value = items[active].textContent;
                 suggestions.innerHTML = '';
                 suggestions.style.display = 'none';
+                // perform search using the selected suggestion
+                searchAllResults(inputBox.value);
                 active = -1;
             }
         } else if (e.key === 'Escape'){
@@ -137,3 +203,26 @@ if (inputBox) {
     });
     
     }
+
+// Utility: collect results matching a class name and return structured data
+function getResultsFromClass(className){
+    if (!className) return [];
+    const matched = Array.from(document.querySelectorAll('.result-box table tr.' + className));
+    // If rows aren't using classes but cells are, also look for elements with the class inside the table
+    if (matched.length === 0){
+        const inner = Array.from(document.querySelectorAll('.result-box table .' + className));
+        // Map to their closest table row
+        const rows = inner.map(el => el.closest('tr')).filter(Boolean);
+        return rows.map(r => {
+            const cells = Array.from(r.querySelectorAll('td,th')).map(c => c.textContent.trim());
+            return { element: r, cells, text: r.textContent.trim() };
+        });
+    }
+    return matched.map(r => {
+        const cells = Array.from(r.querySelectorAll('td,th')).map(c => c.textContent.trim());
+        return { element: r, cells, text: r.textContent.trim() };
+    });
+}
+
+// Expose helper for console use
+window.getResultsFromClass = getResultsFromClass;
