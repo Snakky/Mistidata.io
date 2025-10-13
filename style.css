@@ -132,3 +132,16 @@ button {
   font-weight: 600;
 }
 
+/* Autosize helpers */
+#inputBox{ min-width: 160px; max-width: 100%; }
+/* Hidden measurement span used by JS to compute text width */
+._autosize-measure{
+  position: absolute;
+  visibility: hidden;
+  height: auto;
+  width: auto;
+  white-space: pre;
+  font-size: 16px; /* should match input font-size */
+  font-family: Khmer OS System, Arial, sans-serif;
+  padding: 12px 14px;
+}
