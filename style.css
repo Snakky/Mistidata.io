@@ -20,11 +20,13 @@ body {
   margin-bottom: 24px;
 }
 .main-table-header img {
-  height: 185px;
-  margin-right: 120px;
+  max-height: 120px;
+  max-width: 120px;
+  height: auto;
+  margin-right: 24px;
 }
 .main-table-header .company-name {
-  font-size: 3em;
+  font-size: 2em;
   font-weight: bold;
   color: #2980f2;
 }
@@ -120,6 +122,10 @@ button {
 .results-box {
   margin-top: 24px;
 }
+.result-box{
+  margin-top: 24px;
+  overflow-x: auto;
+}
 /* Highlighted search result row */
 .highlight {
   background: #fff7ed !important;
@@ -144,4 +150,17 @@ button {
   font-size: 16px; /* should match input font-size */
   font-family: Khmer OS System, Arial, sans-serif;
   padding: 12px 14px;
+}
+
+/* Mobile responsive adjustments */
+@media (max-width: 600px){
+  .main-table{ padding: 16px; width: 94%; }
+  .main-table-header{ flex-direction: column; align-items: flex-start; }
+  .main-table-header img{ height: 64px; margin-right: 0; margin-bottom: 8px; }
+  .main-table-header .company-name{ font-size: 1.25rem; }
+  #inputBox{ width: 100% !important; min-width: 0; }
+  .search-box{ max-width: 100%; }
+  button{ position: static; transform: none; margin-left: 8px; display: inline-block; }
+  .suggestions{ left: 0; right: auto; width: 100%; }
+  th, td{ padding: 10px 8px; font-size: 14px; }
 }
