@@ -11,6 +11,14 @@ const inputBox = document.getElementById("inputBox");
 const suggestions = document.getElementById('suggestions');
 const searchButton = document.getElementById('searchButton');
 
+// AUTOSIZE: create a hidden measurer element
+let _autosizeMeasure = document.querySelector('._autosize-measure');
+if (!_autosizeMeasure){
+    _autosizeMeasure = document.createElement('div');
+    _autosizeMeasure.className = '_autosize-measure';
+    document.body.appendChild(_autosizeMeasure);
+}
+
 if (inputBox) {
     inputBox.addEventListener('input', function () {
         const q = inputBox.value.trim().toLowerCase();
@@ -46,6 +54,35 @@ if (inputBox) {
             suggestions.style.display = 'block';
         }
     });
+
+    // Autosize handler: set input width to content width (with min/max)
+    function autosizeInput(){
+        if (!inputBox || !_autosizeMeasure) return;
+        // Copy font and padding styles so measurement is accurate
+        const style = window.getComputedStyle(inputBox);
+        _autosizeMeasure.style.font = style.font;
+        _autosizeMeasure.style.padding = style.padding;
+        _autosizeMeasure.style.fontSize = style.fontSize;
+        _autosizeMeasure.style.fontFamily = style.fontFamily;
+        const value = inputBox.value || inputBox.placeholder || '';
+        _autosizeMeasure.textContent = value;
+
+        const parent = inputBox.parentElement;
+        const parentWidth = parent ? parent.getBoundingClientRect().width : window.innerWidth;
+        const min = 160; // px
+        const max = Math.max(200, parentWidth - 80);
+        const measured = Math.ceil(_autosizeMeasure.getBoundingClientRect().width) + 24; // extra buffer
+        const final = Math.min(Math.max(measured, min), max);
+        inputBox.style.width = final + 'px';
+        // Sync suggestions width
+        if (suggestions) suggestions.style.width = final + 'px';
+    }
+
+    // call autosize on input and on window resize
+    inputBox.addEventListener('input', autosizeInput);
+    window.addEventListener('resize', autosizeInput);
+    // initial call
+    autosizeInput();
 
     // Hide suggestions on blur (with a short delay to allow click events)
     inputBox.addEventListener('blur', function (){
