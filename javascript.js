@@ -1,3 +1,5 @@
+const clearButton = document.getElementById('clearButton');
+
 let availablekeywords = [
     "ខេត្តសៀមរាប",
     "ខេត្តកំពង់ចាម",
@@ -20,11 +22,33 @@ if (!_autosizeMeasure){
 }
 
 if (inputBox) {
-    inputBox.addEventListener('input', function () {
+    // Debounce helper
+    function debounce(fn, wait){
+        let t;
+        return function(...args){
+            clearTimeout(t);
+            t = setTimeout(() => fn.apply(this, args), wait);
+        };
+    }
+
+    // Show/hide clear button utility
+    function updateClearButton(){
+        if (!clearButton) return;
+        if (inputBox.value && inputBox.value.trim().length){
+            clearButton.style.display = 'flex';
+        } else {
+            clearButton.style.display = 'none';
+        }
+    }
+
+    const onInput = debounce(function(){
         const q = inputBox.value.trim().toLowerCase();
         if (!q) {
             suggestions.innerHTML = '';
             suggestions.style.display = 'none';
+            searchAllResults('');
+            updateClearButton();
+            autosizeInput();
             return;
         }
 
@@ -43,7 +67,7 @@ if (inputBox) {
                 li.className = 'suggestion-item';
                 // use click so the input keeps focus properly across browsers
                 li.addEventListener('click', function () {
-                    inputBox.value = m;
+                    setInputValueAndShowFull(m);
                     suggestions.innerHTML = '';
                     suggestions.style.display = 'none';
                     // filter results (table or divs) immediately for the selected suggestion
@@ -53,7 +77,9 @@ if (inputBox) {
             });
             suggestions.style.display = 'block';
         }
-    });
+        updateClearButton();
+        autosizeInput();
+    }, 250);
 
     // Autosize handler: set input width to content width (with min/max)
     function autosizeInput(){
@@ -78,8 +104,20 @@ if (inputBox) {
         if (suggestions) suggestions.style.width = final + 'px';
     }
 
+    // Helper to set input value and ensure the full text is visible (title + scroll)
+    function setInputValueAndShowFull(value){
+        inputBox.value = value;
+        inputBox.title = value; // show full text on hover
+        autosizeInput();
+        // ensure we show the start of the value (helpful when input shrinks)
+        inputBox.scrollLeft = 0;
+        updateClearButton();
+    }
+
     // call autosize on input and on window resize
     inputBox.addEventListener('input', autosizeInput);
+    // also call debounced input handler
+    inputBox.addEventListener('input', onInput);
     window.addEventListener('resize', autosizeInput);
     // initial call
     autosizeInput();
@@ -94,10 +132,29 @@ if (inputBox) {
         }, 150);
     });
 
+    // Clear button behavior
+    if (clearButton){
+        clearButton.addEventListener('click', function(){
+            inputBox.value = '';
+            suggestions.innerHTML = '';
+            suggestions.style.display = 'none';
+            searchAllResults('');
+            updateClearButton();
+            autosizeInput();
+            inputBox.focus();
+        });
+        // ensure initial state
+        updateClearButton();
+    }
+
     // Search button: show the current input value and (optionally) filter the table
     if (searchButton){
         searchButton.addEventListener('click', function(){
             const query = inputBox.value.trim();
+            // ensure full value is visible (title + autosize)
+            inputBox.title = inputBox.value;
+            autosizeInput();
+            inputBox.scrollLeft = 0;
             console.log('Search for:', query);
             searchAllResults(query);
         });
@@ -224,7 +281,7 @@ if (inputBox) {
         } else if (e.key === 'Enter'){
             if (active >= 0 && items[active]){
                 e.preventDefault();
-                inputBox.value = items[active].textContent;
+                setInputValueAndShowFull(items[active].textContent);
                 suggestions.innerHTML = '';
                 suggestions.style.display = 'none';
                 // perform search using the selected suggestion
