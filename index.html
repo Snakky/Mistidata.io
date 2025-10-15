@@ -21,58 +21,38 @@
                 <!-- <button id="clearButton" class="clear-button" type="button" aria-label="Clear search">✕</button> -->
                 <button id="searchButton" type="button">ស្វែងរក</button>
             </div>
+
+            
+            <div class="add-row-box" style="margin: 8px 0 12px 0;">
+                <button id="addRowBtn" type="button">+ បន្ថែម (Add)</button>
+                <button id="clearTableBtn" type="button" style="margin-left:8px; background:#ef4444;">🗑️ លុបទិន្នន័យទាំងអស់ (Clear All)</button>
+                <form id="addRowForm" style="display:none; margin-top:8px; gap:8px; align-items:center;">
+                    <input type="text" id="f_col0" placeholder="លេខទីតាំង" />
+                    <input type="text" id="f_col1" placeholder="ប្រភេទដី" />
+                    <input type="text" id="f_col2" placeholder="ឈ្មោះទីតាំង" />
+                    <input type="text" id="f_col3" placeholder="ផ្ទៃក្រឡាដី" />
+                    <input type="text" id="f_col4" placeholder="សុរិយោដី" />
+                    <button id="saveRowBtn" type="submit">រក្សាទុក (Save)</button>
+                    <button id="cancelRowBtn" type="button">បោះបង់ (Cancel)</button>
+                </form>
+            </div>
             
             <div class="result-box">
                 <!-- Results title: updated by javascript when a search runs -->
                 <h2 id="resultsTitle" class="results-title" hidden></h2>
                 
-                <table>
+                <table class="modern-table">
                     <thead>
                         <tr>
+                            <th>លេខទីតាំង</th>
                             <th>ប្រភេទដី</th>
                             <th>ឈ្មោះទីតាំង</th>
                             <th>ផ្ទៃក្រឡាដី</th>
                             <th>សុរិយោដី</th>
                         </tr>
                     </thead>
-                    <tbody class="ខេត្តសៀមរាប">
-                        <tr>
-                            <td>ដីរោងចក្រ</td>
-                            <td>ភូមិ១.សង្កាត់២.ស្រុក៣.ខេត្តសៀមរាប</td>
-                            <td>1000m²</td>
-                            <td>2024-06-01</td>
-                        </tr>
-                    </tbody>
-                    <tbody class="ខេត្តកណ្តាល">
-                        <tr>
-                            <td>ដីរដ្ឋ</td>
-                            <td>ភូមិ១.សង្កាត់២.ស្រុក៣.ខេត្តកណ្តាល</td>
-                            <td>500m²</td>
-                            <td>2024-06-02</td>
-                        </tr>
-                    </tbody>
-                    <tbody class="រាជធានីភ្នំពេញ">
-                        <tr>
-                            <td>ដីរោងចក្រ</td>
-                            <td>ភូមិ១.សង្កាត់២.ស្រុក៣.រាជធានីភ្នំពេញ</td>
-                            <td>750m²</td>
-                            <td>2024-06-03</td>
-                        </tr>
-                        <tr>
-                            <td>ដីរដ្ឋ</td>
-                            <td>ភូមិ១.សង្កាត់២.ស្រុក៣.រាជធានីភ្នំពេញ</td>
-                            <td>600m²</td>
-                            <td>2024-06-02</td>
-                        </tr>
-                    </tbody>
-                    <tbody class="ខេត្តកំពង់ចាម">
-                        <tr>
-                            <td>ដីរោងចក្រ</td>
-                            <td>ភូមិ១.សង្កាត់២.ស្រុក៣.ខេត្តកំពង់ចាម</td>
-                            <td>800m²</td>
-                            <td>2024-06-03</td>
-                        </tr>
-                    </tbody>
+                    <!-- Empty body for user input -->
+                    <tbody class="custom-added"></tbody>
                 </table>
     </div>
     </div>
