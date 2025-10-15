@@ -24,16 +24,9 @@ function debounce(fn, wait) {
 // Autosize input and sync dropdown width (approximation)
 function autosizeInput() {
     if (!inputBox) return;
-    const base = 14; // px per char
-    const minW = 180;
-    const maxW = 600;
-    const len = Math.max(
-        inputBox.value.length,
-        inputBox.placeholder ? inputBox.placeholder.length : 0
-    );
-    const w = Math.max(minW, Math.min(maxW, Math.round(len * base)));
-    inputBox.style.width = w + 'px';
-    if (suggestions) suggestions.style.minWidth = inputBox.offsetWidth + 'px';
+    // Keep input flexible (full width) in the new flex layout; just sync dropdown width
+    inputBox.style.width = '100%';
+    if (suggestions) suggestions.style.minWidth = inputBox.getBoundingClientRect().width + 'px';
 }
 
 function updateClearButton() {
@@ -167,15 +160,12 @@ if (searchButton) {
 function searchTable(query) {
     const table = document.querySelector('.result-box table');
     if (!table) return;
-    const rows = table.querySelectorAll('tr');
     const q = (query || '').trim().toLowerCase();
-    rows.forEach((row, idx) => {
-        if (idx === 0) {
-            row.style.display = '';
-            return;
-        }
-        const text = row.textContent ? row.textContent.toLowerCase() : '';
-        row.style.display = !q || text.includes(q) ? '' : 'none';
+    const bodyRows = table.querySelectorAll('tbody tr');
+    bodyRows.forEach((row) => {
+        const cells = row.querySelectorAll('td');
+        const typeCell = cells[1] ? (cells[1].textContent || '').toLowerCase() : '';
+        row.style.display = !q || typeCell.includes(q) ? '' : 'none';
     });
 }
 
@@ -183,32 +173,11 @@ function searchTable(query) {
 function searchAllResults(query) {
     const q = (query || '').trim().toLowerCase();
     const table = document.querySelector('.result-box table');
-    if (table && table.querySelectorAll('tr').length > 0) {
+    if (table) {
         searchTable(query);
         updateResultsTitle(query);
         return;
     }
-    const container = document.querySelector('.result-box');
-    if (!container) return;
-    const itemSelectors = ['.result-item', '.result-card', '.card', '.search-result'];
-    let items = [];
-    for (const s of itemSelectors) {
-        const found = container.querySelectorAll(s);
-        if (found && found.length) {
-            items = Array.from(found);
-            break;
-        }
-    }
-    if (!items.length) {
-        items = Array.from(container.children).filter(
-            (el) => el.tagName.toLowerCase() !== 'table'
-        );
-    }
-    items.forEach((it) => {
-        const text = it.textContent ? it.textContent.toLowerCase() : '';
-        it.style.display = !q || text.includes(q) ? '' : 'none';
-    });
-    updateResultsTitle(query);
 }
 
 // Results title + document title update
@@ -219,8 +188,8 @@ function updateResultsTitle(query) {
     let count = 0;
     const table = document.querySelector('.result-box table');
     if (table && table.querySelectorAll('tr').length > 0) {
-        const rows = Array.from(table.querySelectorAll('tr'));
-        count = rows.slice(1).filter((r) => r.style.display !== 'none').length;
+        const rows = Array.from(table.querySelectorAll('tbody tr'));
+        count = rows.filter((r) => r.style.display !== 'none').length;
     } else {
         const container = document.querySelector('.result-box');
         if (container) {
@@ -255,9 +224,7 @@ function refreshKeywordsFromTable() {
     const set = new Set();
     for (const r of rows) {
         const cells = r.querySelectorAll('td');
-        if (cells[0]) set.add(cells[0].textContent.trim());
-        if (cells[1]) set.add(cells[1].textContent.trim());
-        if (cells[2]) set.add(cells[2].textContent.trim());
+        if (cells[1]) set.add((cells[1].textContent || '').trim()); // use only ប្រភេទដី
     }
     availablekeywords = Array.from(set).filter(Boolean);
 }
@@ -309,6 +276,9 @@ const addRowForm = document.getElementById('addRowForm');
 const saveRowBtn = document.getElementById('saveRowBtn');
 const cancelRowBtn = document.getElementById('cancelRowBtn');
 const clearTableBtn = document.getElementById('clearTableBtn');
+const exportJsonBtn = document.getElementById('exportJsonBtn');
+const loadSharedBtn = document.getElementById('loadSharedBtn');
+ 
 
 function appendRow(cols) {
     const table = document.querySelector('.result-box table');
@@ -360,7 +330,12 @@ if (addRowBtn && addRowForm) {
                     getVal('f_col4'),
                 ];
                 const newRow = appendRow(cols);
-                saveRowsToStorage();
+                // In cloud mode, also write to Firestore for global visibility
+                if (window.CLOUD_MODE && window._cloud && window._cloud.addRow) {
+                    window._cloud.addRow(cols).catch(()=>{});
+                } else {
+                    saveRowsToStorage();
+                }
                 refreshKeywordsFromTable();
                 // Clear any active search so the new row is visible immediately
                 setInputValueAndShowFull('');
@@ -379,16 +354,18 @@ if (addRowBtn && addRowForm) {
         }
 }
 
-        // Clear all table data and storage
+        // Clear all table data (cloud-aware)
         if (clearTableBtn) {
-            clearTableBtn.addEventListener('click', function () {
+            clearTableBtn.addEventListener('click', async function () {
                 if (!confirm('Are you sure you want to delete all rows?')) return;
+                if (window.CLOUD_MODE && window._cloud && window._cloud.clearAll) {
+                    try { await window._cloud.clearAll(); } catch {}
+                }
                 const table = document.querySelector('.result-box table');
                 if (table) {
                     const tbodies = Array.from(table.querySelectorAll('tbody'));
                     tbodies.forEach((tb) => (tb.innerHTML = ''));
                 }
-                // Clear storage and refresh keywords/results
                 localStorage.removeItem(STORAGE_KEY);
                 refreshKeywordsFromTable();
                 setInputValueAndShowFull('');
@@ -424,15 +401,109 @@ function getResultsFromClass(className) {
 }
 window.getResultsFromClass = getResultsFromClass;
 
-// On load: hydrate table from localStorage if present
-(function initFromStorage(){
+// Data layer: Firestore (if configured) -> else localStorage -> else data.json
+(function initData(){
+    const hasFirebase = typeof window !== 'undefined' && window.FIREBASE_CONFIG && window.firebase;
+    if (hasFirebase) {
+        try {
+            const app = firebase.initializeApp(window.FIREBASE_CONFIG);
+            const db = firebase.firestore(app);
+            const coll = db.collection('misti_rows');
+
+            // Live listener: keep table in sync for everyone
+            coll.orderBy('createdAt').onSnapshot((snap) => {
+                const rows = [];
+                snap.forEach(doc => rows.push(doc.data().cols || []));
+                const table = document.querySelector('.result-box table');
+                if (!table) return;
+                const tbodies = Array.from(table.querySelectorAll('tbody'));
+                tbodies.forEach(tb => tb.innerHTML = '');
+                rows.forEach(cols => appendRow(cols));
+                refreshKeywordsFromTable();
+                setInputValueAndShowFull('');
+                searchAllResults('');
+                updateResultsTitle('');
+            });
+
+            // Cloud mode hooks used by existing UI handlers
+            window.CLOUD_MODE = true;
+            window._cloud = {
+                addRow: (cols) => coll.add({ cols, createdAt: firebase.firestore.FieldValue.serverTimestamp() }),
+                clearAll: async () => {
+                    const snap = await coll.get();
+                    const batch = db.batch();
+                    snap.forEach(d => batch.delete(d.ref));
+                    return batch.commit();
+                }
+            };
+
+            // In cloud mode, ignore local save
+            window.saveRowsToStorage = function(){};
+            return; // cloud mode initialized
+        } catch (e) {
+            console.warn('Firebase unavailable, falling back to local/data.json', e);
+        }
+    }
+
+    // Local mode: existing behavior plus data.json fallback
     const rows = loadRowsFromStorage();
     if (rows.length) {
         rows.forEach(cols => appendRow(cols));
         refreshKeywordsFromTable();
         updateResultsTitle('');
+        return;
     }
+    fetch('data.json', { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : [])
+      .then(json => {
+          if (Array.isArray(json)) {
+              json.forEach(cols => appendRow(cols));
+              refreshKeywordsFromTable();
+              updateResultsTitle('');
+          }
+      })
+      .catch(() => {});
 })();
+
+// Export current table rows to a JSON download so it can be committed to Git
+if (exportJsonBtn) {
+    exportJsonBtn.addEventListener('click', function(){
+        const data = serializeTableRows();
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'data.json';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    });
+}
+
+// Manually load shared data.json (overwrites current displayed rows)
+if (loadSharedBtn) {
+    loadSharedBtn.addEventListener('click', function(){
+        fetch('data.json', { cache: 'no-store' })
+            .then(r => r.ok ? r.json() : Promise.reject('Not found'))
+            .then(json => {
+                const table = document.querySelector('.result-box table');
+                if (!table) return;
+                const tbodies = Array.from(table.querySelectorAll('tbody'));
+                tbodies.forEach(tb => tb.innerHTML = '');
+                if (Array.isArray(json)) json.forEach(cols => appendRow(cols));
+                // Clear localStorage to rely on shared data until user edits
+                localStorage.removeItem(STORAGE_KEY);
+                refreshKeywordsFromTable();
+                setInputValueAndShowFull('');
+                searchAllResults('');
+                updateResultsTitle('');
+            })
+            .catch(() => alert('No shared data.json found yet. Use Export to create one and commit it.'));
+    });
+}
+
+
 
 // --- Optional: make table columns sortable ---
 (function initSortableTable(){
@@ -504,3 +575,82 @@ window.getResultsFromClass = getResultsFromClass;
         });
     });
 })();
+
+// --- Generic loader: fetch JSON and populate table ---
+// Usage examples (in console or your code):
+// loadTableFromUrl('data.json');
+// loadTableFromUrl('https://example.com/api/rows');
+// loadTableFromUrl('https://.../api', { columns: ['id','type','name','area','sun'], replace: true });
+// If 'columns' is omitted and items are objects, the first 5 keys are used.
+// If CLOUD_MODE is enabled (Firestore), this will (optionally) replace cloud data and add rows there.
+window.loadTableFromUrl = async function(url, opts){
+    opts = opts || {};
+    const columns = opts.columns || null; // string[] or {0:'id',1:'type',...}
+    const replace = opts.replace !== false; // default true
+
+    const titleEl = document.getElementById('resultsTitle');
+    if (titleEl) { titleEl.hidden = false; titleEl.textContent = 'Loading…'; }
+    try {
+        const res = await fetch(url, { cache: 'no-store' });
+        if (!res.ok) throw new Error('HTTP '+res.status);
+        const json = await res.json();
+        let arr = [];
+        if (Array.isArray(json)) arr = json;
+        else if (Array.isArray(json?.data)) arr = json.data;
+        else if (Array.isArray(json?.rows)) arr = json.rows;
+        else if (json && typeof json === 'object') arr = [json];
+
+        const toFive = (cols) => {
+            const out = new Array(5).fill('');
+            for (let i=0;i<5;i++){ out[i] = cols[i] ?? ''; }
+            return out;
+        };
+        const objectToCols = (obj) => {
+            if (!obj || typeof obj !== 'object') return new Array(5).fill('');
+            if (Array.isArray(columns)) {
+                return toFive(columns.map(k => obj[k] ?? ''));
+            } else if (columns && typeof columns === 'object') {
+                const out = new Array(5).fill('');
+                for (let i=0;i<5;i++){
+                    const key = columns[i];
+                    out[i] = key ? (obj[key] ?? '') : '';
+                }
+                return out;
+            } else {
+                const keys = Object.keys(obj);
+                return toFive(keys.slice(0,5).map(k => obj[k] ?? ''));
+            }
+        };
+
+        if (window.CLOUD_MODE && window._cloud && window._cloud.addRow) {
+            if (replace && window._cloud.clearAll) { try { await window._cloud.clearAll(); } catch{} }
+            for (const item of arr) {
+                const cols = Array.isArray(item) ? toFive(item) : objectToCols(item);
+                try { await window._cloud.addRow(cols); } catch{}
+            }
+            if (titleEl) titleEl.textContent = `Loaded ${arr.length} rows (cloud)`;
+            return;
+        }
+
+        // Local/DOM mode: replace table body then save to localStorage
+        const table = document.querySelector('.result-box table');
+        if (!table) throw new Error('Table not found');
+        if (replace) {
+            const tbodies = Array.from(table.querySelectorAll('tbody'));
+            tbodies.forEach(tb => tb.innerHTML = '');
+        }
+        for (const item of arr) {
+            const cols = Array.isArray(item) ? toFive(item) : objectToCols(item);
+            appendRow(cols);
+        }
+        saveRowsToStorage();
+        refreshKeywordsFromTable();
+        setInputValueAndShowFull('');
+        searchAllResults('');
+        updateResultsTitle('');
+        if (titleEl) titleEl.textContent = `Loaded ${arr.length} rows`;
+    } catch (err) {
+        if (titleEl) { titleEl.hidden = false; titleEl.textContent = 'Failed to load data'; }
+        console.warn('loadTableFromUrl error:', err);
+    }
+};
