@@ -290,10 +290,33 @@ function appendRow(cols) {
         tbody.className = 'custom-added';
         table.appendChild(tbody); // append at end so new rows appear at bottom
     }
+    const cleanText = (s) => {
+        const t = (s == null ? '' : String(s));
+        return t.replace(/\\t/g, ' ').replace(/\t/g, ' ').replace(/_/g, ' ').replace(/\s{2,}/g, ' ').trim();
+    };
+    const formatAmount = (s) => {
+        const raw = (s == null ? '' : String(s));
+        const num = Number(raw.replace(/[^\d.-]/g, ''));
+        if (isNaN(num)) return cleanText(s);
+        return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    };
+    const formatRef = (s) => {
+        const t = cleanText(s);
+        if (!t) return '';
+        return (t.startsWith('"') && t.endsWith('"')) ? t : `"${t}"`;
+    };
     const tr = document.createElement('tr');
     for (let i = 0; i < 5; i++) {
         const td = document.createElement('td');
-        td.textContent = cols[i] || '';
+        let val = cols[i] || '';
+        if (i === 3) {
+            val = formatAmount(val);
+        } else if (i === 4) {
+            val = formatRef(val);
+        } else {
+            val = cleanText(val);
+        }
+        td.textContent = val;
         tr.appendChild(td);
     }
     tbody.appendChild(tr);
@@ -446,6 +469,13 @@ window.getResultsFromClass = getResultsFromClass;
     }
 
     // Local mode: existing behavior plus data.json fallback
+    // If HTML already has rows (preloaded), just refresh keywords and title.
+    const existing = document.querySelectorAll('.result-box table tbody tr').length;
+    if (existing > 0) {
+        refreshKeywordsFromTable();
+        updateResultsTitle('');
+        return;
+    }
     const rows = loadRowsFromStorage();
     if (rows.length) {
         rows.forEach(cols => appendRow(cols));
@@ -453,6 +483,7 @@ window.getResultsFromClass = getResultsFromClass;
         updateResultsTitle('');
         return;
     }
+    // Fallback to data.json only if no static rows and no local rows
     fetch('data.json', { cache: 'no-store' })
       .then(r => r.ok ? r.json() : [])
       .then(json => {
