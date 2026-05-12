@@ -51,14 +51,21 @@ body {
   background: conic-gradient(from 180deg at 50% 50%, #3b82f6, #60a5fa, #0ea5e9, #3b82f6);
   padding: 3px;
   box-shadow: 0 8px 24px rgba(2, 132, 199, 0.18), inset 0 0 0 1px rgba(255,255,255,0.7);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  position: relative;
 }
 .main-table-header .logo-img {
-  width: 100%;
-  height: 100%;
+  width: calc(100% - 6px);
+  height: calc(100% - 6px);
+  max-width: 100%;
+  max-height: 100%;
   display: block;
   border-radius: 50%;
   background: #fff;
   object-fit: cover;
+  object-position: center center;
 }
 .main-table-header .logo .logo-fallback {
   position: absolute;
@@ -293,7 +300,6 @@ body {
   caret-color: var(--primary-blue);
   transition: all 0.3s ease;
   font-family: inherit;
-  position: relative;
 }
 
 #inputBox:focus {
@@ -700,47 +706,77 @@ input#inputBox:-webkit-autofill:focus {
   }
 }
 
-/* Utility Classes */
-.visually-hidden {
-  position: absolute !important;
-  height: 1px;
-  width: 1px;
-  overflow: hidden;
-  clip: rect(1px, 1px, 1px, 1px);
-  white-space: nowrap;
+/* === Mobile / responsive improvements added by assistant === */
+:root{
+  --bg: #fafafa;
+  --card: #fff;
+  --text: #111;
+  --muted: #666;
+  --accent: #0b66ff;
 }
 
-/* Autosize helpers */
-#inputBox { 
-  min-width: 200px; 
-  max-width: 100%; 
-  padding-right: 18px; 
-  padding-left: 18px; 
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;
+  font-family: system-ui, 'Segoe UI', Roboto, 'Noto Sans', Arial, sans-serif;
+  color:var(--text);
+  background:var(--bg);
+  -webkit-font-smoothing:antialiased;
+  font-size:clamp(14px,1.6vw,18px);
+  line-height:1.45;
 }
 
-._autosize-measure {
-  position: absolute;
-  visibility: hidden;
-  height: auto;
-  width: auto;
-  white-space: pre;
-  font-size: 16px;
-  font-family: 'Khmer OS System', Arial, sans-serif;
-  padding: 14px 18px;
+.main-table{max-width:1100px;margin:0 auto;padding:16px}
+.main-table-header{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.logo-ring{width:clamp(40px,9vw,72px);display:flex;align-items:center;justify-content:center}
+.logo-img{width:100%;height:auto;border-radius:8px}
+.company-name{font-weight:700;font-size:clamp(16px,3.2vw,22px);line-height:1.1}
+
+.search-box{display:flex;gap:8px;align-items:center;margin-bottom:12px;width:100%}
+.search-input-wrap{flex:1;position:relative}
+#inputBox{width:100%;padding:10px 12px;border:1px solid #e6e6e6;border-radius:8px;font-size:1rem}
+#searchButton{padding:10px 14px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-weight:600;min-width:92px}
+
+.suggestions{position:absolute;left:0;right:0;top:calc(100% + 6px);background:var(--card);border:1px solid #eee;max-height:220px;overflow:auto;z-index:30;border-radius:6px;padding:6px}
+
+.result-box{margin-top:6px}
+.table-responsive{overflow:auto;-webkit-overflow-scrolling:touch;background:transparent;border-radius:8px;padding-bottom:8px}
+
+/* Table */
+.modern-table{width:100%;border-collapse:collapse;min-width:800px;background:var(--card);border-radius:6px}
+.modern-table thead th{background:#f6f8fb;padding:10px;text-align:left;font-weight:700;position:sticky;top:0;z-index:2}
+.modern-table tbody td{padding:10px;border-top:1px solid #f1f1f1;vertical-align:top}
+.modern-table a{color:var(--accent);text-decoration:none}
+.modern-table td, .modern-table th{word-break:break-word}
+.rownum-col{width:64px}
+.map-col{white-space:nowrap}
+
+/* Accessibility helper */
+.visually-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);border:0}
+
+/* Mobile optimizations */
+@media (max-width:600px){
+  .main-table{padding:12px}
+  .main-table-header{flex-direction:row;gap:10px}
+  .company-name{font-size:16px}
+  .search-box{flex-direction:column;align-items:stretch}
+  #searchButton{width:100%}
+  .logo-ring{width:48px;flex:0 0 48px}
+  .modern-table{min-width:640px}
+  .table-responsive{margin-bottom:12px}
+  /* Hide low-priority columns on small screens for clarity */
+  .rownum-col{display:none}
+  .map-col{display:none}
+  .modern-table thead th, .modern-table tbody td{padding:8px}
 }
 
-/* Loading and Animation States */
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+/* Very small screens */
+@media (max-width:420px){
+  body{font-size:14px}
+  .modern-table{min-width:560px}
+  .company-name{font-size:14px}
+  #inputBox{padding:10px}
 }
 
-.modern-table tbody tr {
-  animation: fadeIn 0.3s ease-in-out;
-}
-
-/* Focus Management */
-*:focus-visible {
-  outline: 2px solid var(--primary-blue);
-  outline-offset: 2px;
-}
+/* End of assistant-added CSS */
